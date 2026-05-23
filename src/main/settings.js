@@ -3,7 +3,7 @@ const { SETTINGS_FILE } = require('./paths');
 
 const DEFAULTS = {
   captureIntervalMs: 4000,
-  retentionHours: 48,
+  retentionHours: 720,
   redactionEnabled: true,
   paused: false,
   captureMode: 'primary', // 'primary' | 'all-separate' | 'all-stitched'
