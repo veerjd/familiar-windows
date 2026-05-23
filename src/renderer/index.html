@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Familiar Settings</title>
+<style>
+  :root { color-scheme: light dark; font-family: Segoe UI, system-ui, sans-serif; }
+  body { margin: 0; padding: 20px; }
+  h1 { font-size: 18px; margin: 0 0 16px; }
+  label { display: block; margin: 10px 0; font-size: 14px; }
+  input[type="number"] { width: 80px; }
+  button { padding: 6px 12px; margin-right: 8px; }
+  .row { display: flex; gap: 8px; align-items: center; margin: 10px 0; }
+  .muted { color: #888; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>Familiar — Settings</h1>
+
+  <label><input type="checkbox" id="paused" /> Paused</label>
+  <label><input type="checkbox" id="redactionEnabled" /> Redact secrets (passwords, keys, SSN, cards)</label>
+
+  <label>
+    Capture interval (ms)
+    <input type="number" id="captureIntervalMs" min="1000" step="500" />
+  </label>
+
+  <label>
+    Image retention (hours)
+    <input type="number" id="retentionHours" min="1" step="1" />
+  </label>
+
+  <label>
+    Capture mode
+    <select id="captureMode">
+      <option value="primary">Primary monitor only</option>
+      <option value="all-separate">All monitors — one file per monitor</option>
+      <option value="all-stitched">All monitors — stitched into one image</option>
+    </select>
+  </label>
+
+  <div class="row">
+    <button id="save">Save</button>
+    <button id="captureNow">Capture now</button>
+    <button id="openStorage">Open storage folder</button>
+  </div>
+
+  <p class="muted" id="status"></p>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (msg) => { $('status').textContent = msg; setTimeout(() => $('status').textContent = '', 2500); };
+
+    async function refresh() {
+      const s = await window.familiar.getSettings();
+      $('paused').checked = !!s.paused;
+      $('redactionEnabled').checked = !!s.redactionEnabled;
+      $('captureIntervalMs').value = s.captureIntervalMs;
+      $('retentionHours').value = s.retentionHours;
+      $('captureMode').value = s.captureMode || 'primary';
+    }
+
+    $('save').addEventListener('click', async () => {
+      await window.familiar.setSettings({
+        paused: $('paused').checked,
+        redactionEnabled: $('redactionEnabled').checked,
+        captureIntervalMs: Number($('captureIntervalMs').value),
+        retentionHours: Number($('retentionHours').value),
+        captureMode: $('captureMode').value,
+      });
+      status('Saved');
+    });
+    $('captureNow').addEventListener('click', async () => {
+      await window.familiar.captureNow();
+      status('Capture triggered');
+    });
+    $('openStorage').addEventListener('click', () => window.familiar.openStorage());
+
+    refresh();
+  </script>
+</body>
+</html>

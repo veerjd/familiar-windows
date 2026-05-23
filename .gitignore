@@ -1,0 +1,9 @@
+node_modules/
+build/ocr/
+build/rg/
+dist/
+out/
+*.log
+.DS_Store
+src/ocr-helper/bin/
+src/ocr-helper/obj/

@@ -1,0 +1,66 @@
+{
+  "name": "familiar-windows",
+  "version": "0.1.0",
+  "description": "Familiar menu-bar app for Windows — captures the screen every 4s, OCRs to markdown for local AI agents.",
+  "main": "src/main/index.js",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "dev": "electron .",
+    "ocr:build": "dotnet publish src/ocr-helper/FamiliarOcr.csproj -c Release -r win-x64 --self-contained true -o build/ocr",
+    "rg:fetch": "node scripts/fetch-ripgrep.js",
+    "predist": "npm run ocr:build && npm run rg:fetch",
+    "prepack": "npm run ocr:build && npm run rg:fetch",
+    "dist": "electron-builder --win --x64",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "electron-log": "^5.3.4"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.follosoft.familiar-windows",
+    "productName": "Familiar",
+    "files": [
+      "src/**/*",
+      "!src/ocr-helper/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build/ocr",
+        "to": "ocr"
+      },
+      {
+        "from": "build/rg",
+        "to": "rg"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
