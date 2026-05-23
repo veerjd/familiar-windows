@@ -8,10 +8,9 @@
     "postinstall": "electron-rebuild -f -w better-sqlite3",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "dev": "electron .",
-    "ocr:build": "dotnet publish src/ocr-helper/FamiliarOcr.csproj -c Release -r win-x64 --self-contained true -o build/ocr",
     "rg:fetch": "node scripts/fetch-ripgrep.js",
-    "predist": "npm run ocr:build && npm run rg:fetch",
-    "prepack": "npm run ocr:build && npm run rg:fetch",
+    "predist": "npm run rg:fetch",
+    "prepack": "npm run rg:fetch",
     "dist": "electron-builder --win --x64",
     "pack": "electron-builder --dir"
   },
@@ -28,13 +27,12 @@
     "appId": "com.follosoft.familiar-windows",
     "productName": "Familiar",
     "files": [
-      "src/**/*",
-      "!src/ocr-helper/**/*"
+      "src/**/*"
     ],
     "extraResources": [
       {
-        "from": "build/ocr",
-        "to": "ocr"
+        "from": "build/tess",
+        "to": "tess"
       },
       {
         "from": "build/rg",
@@ -42,6 +40,7 @@
       }
     ],
     "win": {
+      "icon": "src/assets/familiar.ico",
       "target": [
         {
           "target": "nsis",
