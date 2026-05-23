@@ -18,7 +18,7 @@ function build(state, handlers) {
 }
 
 function create(state, handlers) {
-  const iconPath = path.join(__dirname, '..', 'assets', 'familiar.ico');
+  const iconPath = path.join(__dirname, '..', 'assets', 'familiar.png');
   const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
   tray.setToolTip('Familiar');

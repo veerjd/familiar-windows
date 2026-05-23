@@ -25,7 +25,7 @@ function openSettings() {
     width: 480,
     height: 520,
     title: 'Familiar Settings',
-    icon: path.join(__dirname, '..', 'assets', 'familiar.ico'),
+    icon: path.join(__dirname, '..', 'assets', 'familiar.png'),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '..', 'renderer', 'preload.js'),

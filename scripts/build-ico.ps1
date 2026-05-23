@@ -3,8 +3,7 @@
 # requires at least one 256x256 entry. Run once after replacing familiar.png.
 
 param(
-  [string]$Source = "src/assets/familiar.png",
-  [string]$Target = "src/assets/familiar.ico"
+  [string]$Source = "src/assets/familiar.png"
 )
 
 Add-Type -AssemblyName System.Drawing
