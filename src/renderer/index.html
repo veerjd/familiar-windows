@@ -36,8 +36,15 @@
       <option value="primary">Primary monitor only</option>
       <option value="all-separate">All monitors — one file per monitor</option>
       <option value="all-stitched">All monitors — stitched into one image</option>
+      <option value="selected-separate">Selected monitors — one file each</option>
+      <option value="selected-stitched">Selected monitors — stitched into one image</option>
     </select>
   </label>
+
+  <fieldset id="displaysWrap" style="display:none; margin:10px 0; padding:8px 12px; border:1px solid #8884;">
+    <legend style="font-size:13px;">Select monitors to capture</legend>
+    <div id="displaysList"></div>
+  </fieldset>
 
   <div class="row">
     <button id="save">Save</button>
@@ -51,6 +58,29 @@
     const $ = (id) => document.getElementById(id);
     const status = (msg) => { $('status').textContent = msg; setTimeout(() => $('status').textContent = '', 2500); };
 
+    function selectedIds() {
+      return [...document.querySelectorAll('#displaysList input[type=checkbox]:checked')]
+        .map((el) => Number(el.value));
+    }
+
+    function syncDisplaysVisibility() {
+      const mode = $('captureMode').value;
+      $('displaysWrap').style.display = mode.startsWith('selected-') ? '' : 'none';
+    }
+
+    async function renderDisplays(checkedIds) {
+      const displays = await window.familiar.listDisplays();
+      const checked = new Set((checkedIds || []).map(String));
+      $('displaysList').innerHTML = displays.map((d) => {
+        const isChecked = checked.has(String(d.id)) ? 'checked' : '';
+        const tag = d.primary ? ' <span class="muted">(primary)</span>' : '';
+        return `<label style="display:block; margin:4px 0;">
+          <input type="checkbox" value="${d.id}" ${isChecked} />
+          ${d.label} — ${d.width}×${d.height} @ (${d.x},${d.y})${tag}
+        </label>`;
+      }).join('');
+    }
+
     async function refresh() {
       const s = await window.familiar.getSettings();
       $('paused').checked = !!s.paused;
@@ -58,15 +88,26 @@
       $('captureIntervalMs').value = s.captureIntervalMs;
       $('retentionHours').value = s.retentionHours;
       $('captureMode').value = s.captureMode || 'primary';
+      await renderDisplays(s.selectedDisplayIds || []);
+      syncDisplaysVisibility();
     }
 
+    $('captureMode').addEventListener('change', syncDisplaysVisibility);
+
     $('save').addEventListener('click', async () => {
+      const mode = $('captureMode').value;
+      const ids = selectedIds();
+      if (mode.startsWith('selected-') && !ids.length) {
+        status('Pick at least one monitor');
+        return;
+      }
       await window.familiar.setSettings({
         paused: $('paused').checked,
         redactionEnabled: $('redactionEnabled').checked,
         captureIntervalMs: Number($('captureIntervalMs').value),
         retentionHours: Number($('retentionHours').value),
-        captureMode: $('captureMode').value,
+        captureMode: mode,
+        selectedDisplayIds: ids,
       });
       status('Saved');
     });

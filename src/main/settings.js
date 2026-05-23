@@ -2,11 +2,13 @@ const fs = require('fs');
 const { SETTINGS_FILE } = require('./paths');
 
 const DEFAULTS = {
-  captureIntervalMs: 4000,
+  captureIntervalMs: 8000,
   retentionHours: 720,
   redactionEnabled: true,
   paused: false,
-  captureMode: 'primary', // 'primary' | 'all-separate' | 'all-stitched'
+  // 'primary' | 'all-separate' | 'all-stitched' | 'selected-separate' | 'selected-stitched'
+  captureMode: 'primary',
+  selectedDisplayIds: [], // numeric display IDs, used when captureMode starts with 'selected-'
 };
 
 function load() {

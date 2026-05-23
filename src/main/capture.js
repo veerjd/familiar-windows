@@ -38,11 +38,13 @@ async function ocrAndSave({ pngBuffer, imagePath, mdPath, ts, redactionEnabled }
 }
 
 async function getAllScreenSources() {
-  // desktopCapturer returns one source per monitor when types: ['screen'].
-  // Thumbnail size is the largest display's bounds so we get full resolution everywhere.
+  // desktopCapturer.thumbnailSize is a single max-size applied to ALL sources, so
+  // we ask for the largest *physical* pixel dimensions across all displays. Using
+  // logical (DPI-scaled) bounds here silently downsamples HiDPI monitors and
+  // destroys OCR quality.
   const displays = screen.getAllDisplays();
-  const maxW = Math.max(...displays.map((d) => d.size.width));
-  const maxH = Math.max(...displays.map((d) => d.size.height));
+  const maxW = Math.max(...displays.map((d) => Math.round(d.size.width * (d.scaleFactor || 1))));
+  const maxH = Math.max(...displays.map((d) => Math.round(d.size.height * (d.scaleFactor || 1))));
   const sources = await desktopCapturer.getSources({
     types: ['screen'],
     thumbnailSize: { width: maxW, height: maxH },
@@ -73,14 +75,25 @@ async function captureSinglePrimary(ts, stamp, redactionEnabled) {
   });
 }
 
-async function captureAllSeparate(ts, stamp, redactionEnabled) {
-  const { sources } = await getAllScreenSources();
+function filterDisplays(displays, selectedIds) {
+  if (!selectedIds || !selectedIds.length) return [];
+  const wanted = new Set(selectedIds.map(String));
+  return displays.filter((d) => wanted.has(String(d.id)));
+}
+
+async function captureSeparate(ts, stamp, redactionEnabled, displaysSubset) {
+  const { sources, displays } = await getAllScreenSources();
   if (!sources.length) {
     log.warn('No screen sources available');
     return;
   }
-  for (let i = 0; i < sources.length; i += 1) {
-    const src = sources[i];
+  const targets = displaysSubset || displays;
+  if (!targets.length) {
+    log.warn('No displays matched selection — skipping capture');
+    return;
+  }
+  for (let i = 0; i < targets.length; i += 1) {
+    const src = sourceForDisplay(sources, targets[i]);
     await ocrAndSave({
       pngBuffer: src.thumbnail.toPNG(),
       imagePath: path.join(DIRS.images, `${stamp}-${i}.png`),
@@ -91,14 +104,19 @@ async function captureAllSeparate(ts, stamp, redactionEnabled) {
   }
 }
 
-async function captureAllStitched(ts, stamp, redactionEnabled) {
+async function captureStitched(ts, stamp, redactionEnabled, displaysSubset) {
   const { sources, displays } = await getAllScreenSources();
   if (!sources.length) {
     log.warn('No screen sources available');
     return;
   }
+  const targets = displaysSubset || displays;
+  if (!targets.length) {
+    log.warn('No displays matched selection — skipping capture');
+    return;
+  }
   // Order displays left-to-right; map each to its source.
-  const ordered = [...displays].sort((a, b) => a.bounds.x - b.bounds.x);
+  const ordered = [...targets].sort((a, b) => a.bounds.x - b.bounds.x);
   const tiles = ordered.map((d) => {
     const src = sourceForDisplay(sources, d);
     return { img: src.thumbnail, size: src.thumbnail.getSize() };
@@ -142,31 +160,70 @@ async function captureOnce() {
   const stamp = tsStamp(ts);
   const cfg = settings.load();
   const mode = cfg.captureMode || 'primary';
+  const selectedIds = cfg.selectedDisplayIds || [];
 
   switch (mode) {
     case 'all-separate':
-      return captureAllSeparate(ts, stamp, cfg.redactionEnabled);
+      return captureSeparate(ts, stamp, cfg.redactionEnabled);
     case 'all-stitched':
-      return captureAllStitched(ts, stamp, cfg.redactionEnabled);
+      return captureStitched(ts, stamp, cfg.redactionEnabled);
+    case 'selected-separate': {
+      const subset = filterDisplays(screen.getAllDisplays(), selectedIds);
+      return captureSeparate(ts, stamp, cfg.redactionEnabled, subset);
+    }
+    case 'selected-stitched': {
+      const subset = filterDisplays(screen.getAllDisplays(), selectedIds);
+      return captureStitched(ts, stamp, cfg.redactionEnabled, subset);
+    }
     case 'primary':
     default:
       return captureSinglePrimary(ts, stamp, cfg.redactionEnabled);
   }
 }
 
+function listDisplays() {
+  const primaryId = String(screen.getPrimaryDisplay().id);
+  return screen.getAllDisplays().map((d, i) => ({
+    id: d.id,
+    label: d.label || `Display ${i + 1}`,
+    width: d.size.width,
+    height: d.size.height,
+    x: d.bounds.x,
+    y: d.bounds.y,
+    primary: String(d.id) === primaryId,
+  }));
+}
+
+let stopped = true;
+
 function start(intervalMs) {
   stop();
-  timer = setInterval(() => {
-    captureOnce().catch((err) => log.error('capture loop error', err));
-  }, intervalMs);
+  stopped = false;
+  const tick = async () => {
+    if (stopped) return;
+    const startedAt = Date.now();
+    try {
+      await captureOnce();
+    } catch (err) {
+      log.error('capture loop error', err);
+    }
+    if (stopped) return;
+    // Wait at least intervalMs between captures — but never queue them up. If a
+    // capture took longer than the interval (slow OCR), fire again immediately.
+    const elapsed = Date.now() - startedAt;
+    const delay = Math.max(0, intervalMs - elapsed);
+    timer = setTimeout(tick, delay);
+  };
   log.info(`Capture loop started at ${intervalMs}ms`);
+  timer = setTimeout(tick, intervalMs);
 }
 
 function stop() {
+  stopped = true;
   if (timer) {
-    clearInterval(timer);
+    clearTimeout(timer);
     timer = null;
   }
 }
 
-module.exports = { start, stop, captureOnce };
+module.exports = { start, stop, captureOnce, listDisplays };

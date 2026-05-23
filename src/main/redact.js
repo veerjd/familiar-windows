@@ -11,7 +11,23 @@ const PATTERNS = [
   { name: 'anthropic_key', re: /\bsk-ant-[A-Za-z0-9_-]{20,}\b/g },
   { name: 'jwt', re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g },
   { name: 'ssn', re: /\b\d{3}-\d{2}-\d{4}\b/g },
-  { name: 'credit_card', re: /\b(?:\d[ -]?){13,19}\b/g },
+  // Match digit groups separated by ' ' or '-' only — NOT bare digits with
+  // arbitrary punctuation. Then verify the actual digit count is in card range
+  // (13–19). The previous /\b(?:\d[ -]?){13,19}\b/ matched any 13–19
+  // digit-or-dash run, which ate timestamp filenames like "20260523-141004"
+  // (15 chars) on every screenshot.
+  {
+    name: 'credit_card_spaced',
+    re: /\b\d{4}[ -]\d{4}[ -]\d{2,5}(?:[ -]\d{2,5}){0,2}\b/g,
+    validate: (m) => {
+      const digits = m.replace(/\D/g, '');
+      return digits.length >= 13 && digits.length <= 19;
+    },
+  },
+  // Bare runs of 13–19 digits with no separators. A 14-digit unbroken run is
+  // unlikely to be anything but a card or a phone-with-extension; in either
+  // case "do not log it" is the safer default.
+  { name: 'credit_card_bare', re: /\b\d{13,19}\b/g },
   { name: 'password_kv', re: /(?<=password\s*[:=]\s*['"]?)[^\s'"]{4,}/gi },
   { name: 'api_key_kv', re: /(?<=api[_-]?key\s*[:=]\s*['"]?)[^\s'"]{8,}/gi },
 ];
@@ -28,10 +44,12 @@ function redactMarkdown(text) {
   let out = text;
   let didRedact = false;
   for (const p of PATTERNS) {
-    if (p.re.test(out)) {
-      out = out.replace(p.re, '[REDACTED]');
+    p.re.lastIndex = 0;
+    out = out.replace(p.re, (match) => {
+      if (p.validate && !p.validate(match)) return match;
       didRedact = true;
-    }
+      return '[REDACTED]';
+    });
     p.re.lastIndex = 0;
   }
   return { text: out, didRedact };

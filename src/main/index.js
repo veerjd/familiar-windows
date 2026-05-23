@@ -71,6 +71,7 @@ function setupIpc() {
   });
   ipcMain.handle('storage:open', () => shell.openPath(DIRS.root));
   ipcMain.handle('capture:now', () => capture.captureOnce());
+  ipcMain.handle('displays:list', () => capture.listDisplays());
 }
 
 app.whenReady().then(() => {
