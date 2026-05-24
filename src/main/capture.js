@@ -4,6 +4,7 @@ const path = require('path');
 const log = require('electron-log');
 const { DIRS } = require('./paths');
 const { runOcr } = require('./ocr');
+const { postProcessOcr } = require('./llm');
 const { redactMarkdown } = require('./redact');
 const settings = require('./settings');
 const db = require('./db');
@@ -16,11 +17,12 @@ function tsStamp(ts) {
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
-async function ocrAndSave({ pngBuffer, imagePath, mdPath, ts, redactionEnabled }) {
+async function ocrAndSave({ pngBuffer, imagePath, mdPath, ts, redactionEnabled, ollamaModel, ollamaEndpoint }) {
   fs.writeFileSync(imagePath, pngBuffer);
   let markdown = '';
   try {
-    markdown = await runOcr(imagePath);
+    const raw = await runOcr(imagePath);
+    markdown = await postProcessOcr(raw, ollamaModel, ollamaEndpoint);
   } catch (err) {
     log.error('OCR failed', err);
   }
@@ -58,7 +60,7 @@ function sourceForDisplay(sources, display) {
   return sources.find((s) => s.display_id === idStr) || sources[0];
 }
 
-async function captureSinglePrimary(ts, stamp, redactionEnabled) {
+async function captureSinglePrimary(ts, stamp, redactionEnabled, ollamaModel, ollamaEndpoint) {
   const { sources } = await getAllScreenSources();
   if (!sources.length) {
     log.warn('No screen sources available');
@@ -72,6 +74,8 @@ async function captureSinglePrimary(ts, stamp, redactionEnabled) {
     mdPath: path.join(DIRS.captures, `${stamp}.md`),
     ts,
     redactionEnabled,
+    ollamaModel,
+    ollamaEndpoint,
   });
 }
 
@@ -81,7 +85,7 @@ function filterDisplays(displays, selectedIds) {
   return displays.filter((d) => wanted.has(String(d.id)));
 }
 
-async function captureSeparate(ts, stamp, redactionEnabled, displaysSubset) {
+async function captureSeparate(ts, stamp, redactionEnabled, ollamaModel, ollamaEndpoint, displaysSubset) {
   const { sources, displays } = await getAllScreenSources();
   if (!sources.length) {
     log.warn('No screen sources available');
@@ -100,11 +104,13 @@ async function captureSeparate(ts, stamp, redactionEnabled, displaysSubset) {
       mdPath: path.join(DIRS.captures, `${stamp}-${i}.md`),
       ts,
       redactionEnabled,
+      ollamaModel,
+      ollamaEndpoint,
     });
   }
 }
 
-async function captureStitched(ts, stamp, redactionEnabled, displaysSubset) {
+async function captureStitched(ts, stamp, redactionEnabled, ollamaModel, ollamaEndpoint, displaysSubset) {
   const { sources, displays } = await getAllScreenSources();
   if (!sources.length) {
     log.warn('No screen sources available');
@@ -152,6 +158,8 @@ async function captureStitched(ts, stamp, redactionEnabled, displaysSubset) {
     mdPath: path.join(DIRS.captures, `${stamp}.md`),
     ts,
     redactionEnabled,
+    ollamaModel,
+    ollamaEndpoint,
   });
 }
 
@@ -161,23 +169,24 @@ async function captureOnce() {
   const cfg = settings.load();
   const mode = cfg.captureMode || 'primary';
   const selectedIds = cfg.selectedDisplayIds || [];
+  const { redactionEnabled, ollamaModel, ollamaEndpoint } = cfg;
 
   switch (mode) {
     case 'all-separate':
-      return captureSeparate(ts, stamp, cfg.redactionEnabled);
+      return captureSeparate(ts, stamp, redactionEnabled, ollamaModel, ollamaEndpoint);
     case 'all-stitched':
-      return captureStitched(ts, stamp, cfg.redactionEnabled);
+      return captureStitched(ts, stamp, redactionEnabled, ollamaModel, ollamaEndpoint);
     case 'selected-separate': {
       const subset = filterDisplays(screen.getAllDisplays(), selectedIds);
-      return captureSeparate(ts, stamp, cfg.redactionEnabled, subset);
+      return captureSeparate(ts, stamp, redactionEnabled, ollamaModel, ollamaEndpoint, subset);
     }
     case 'selected-stitched': {
       const subset = filterDisplays(screen.getAllDisplays(), selectedIds);
-      return captureStitched(ts, stamp, cfg.redactionEnabled, subset);
+      return captureStitched(ts, stamp, redactionEnabled, ollamaModel, ollamaEndpoint, subset);
     }
     case 'primary':
     default:
-      return captureSinglePrimary(ts, stamp, cfg.redactionEnabled);
+      return captureSinglePrimary(ts, stamp, redactionEnabled, ollamaModel, ollamaEndpoint);
   }
 }
 
