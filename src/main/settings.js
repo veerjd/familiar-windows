@@ -9,8 +9,6 @@ const DEFAULTS = {
   // 'primary' | 'all-separate' | 'all-stitched' | 'selected-separate' | 'selected-stitched'
   captureMode: 'primary',
   selectedDisplayIds: [], // numeric display IDs, used when captureMode starts with 'selected-'
-  ollamaModel: 'llama3.2',
-  ollamaEndpoint: 'http://localhost:11434',
 };
 
 function load() {

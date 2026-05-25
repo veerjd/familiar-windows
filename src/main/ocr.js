@@ -38,8 +38,8 @@ function runWindowsOcr(imagePath) {
 async function runOcr(imagePath) {
   // Prefer the bundled native helper: it returns word-level bounding boxes,
   // which lets ocr-layout strip icon glyphs, line-number gutters, and braided
-  // side-by-side panes before we hand text to the LLM. The PowerShell path
-  // remains as a safety net (e.g. binary missing, OCR engine unavailable).
+  // side-by-side panes. The PowerShell path remains as a safety net
+  // (e.g. binary missing, OCR engine unavailable).
   if (nativeOcrAvailable()) {
     try {
       const result = await runNative(imagePath);

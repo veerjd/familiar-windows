@@ -10,7 +10,6 @@ const clipboard = require('./clipboard');
 const cleanup = require('./cleanup');
 const tray = require('./tray');
 const { rgAvailable } = require('./redact');
-const llmServer = require('./llm-server');
 
 log.transports.file.resolvePathFn = () => path.join(DIRS.logs, 'main.log');
 
@@ -83,8 +82,6 @@ app.whenReady().then(() => {
   tray.create(state, handlers());
   setupIpc();
   applyState();
-  // Fire and forget — captures gracefully fall back to raw OCR while it boots.
-  llmServer.start().catch((e) => log.warn('Embedded LLM start failed', e.message));
   log.info('Familiar started');
 });
 
@@ -97,5 +94,4 @@ app.on('before-quit', () => {
   capture.stop();
   clipboard.stop();
   cleanup.stop();
-  llmServer.stop();
 });
