@@ -1,7 +1,7 @@
 {
   "name": "familiar-windows",
   "version": "0.1.0",
-  "description": "Windows port of Familiar — a tray app that screenshots every few seconds, runs Windows OCR locally, optionally post-processes with a local Ollama LLM, redacts secrets, and writes markdown into %USERPROFILE%\\.familiar\\ so local AI agents have ambient context. Supports single-monitor, per-monitor, and stitched multi-monitor capture. Zero prerequisites — ships with ripgrep bundled.",
+  "description": "Windows port of Familiar — a tray app that screenshots every few seconds, runs Windows OCR locally, post-processes with a bundled local LLM (or your own Ollama if you prefer), redacts secrets, and writes markdown into %USERPROFILE%\\.familiar\\ so local AI agents have ambient context. Supports single-monitor, per-monitor, and stitched multi-monitor capture. Zero prerequisites — ships with ripgrep and a small llamafile bundled.",
   "main": "src/main/index.js",
   "license": "MIT",
   "author": "JD Veer",
@@ -16,8 +16,9 @@
     "dev": "electron .",
     "icon:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-ico.ps1",
     "rg:fetch": "node scripts/fetch-ripgrep.js",
-    "predist": "npm run rg:fetch",
-    "prepack": "npm run rg:fetch",
+    "llm:fetch": "node scripts/fetch-llamafile.js",
+    "predist": "npm run rg:fetch && npm run llm:fetch",
+    "prepack": "npm run rg:fetch && npm run llm:fetch",
     "dist": "electron-builder --win --x64",
     "pack": "electron-builder --dir"
   },
@@ -27,9 +28,10 @@
     "dev": "Run the app from source. Reads `main: src/main/index.js`, opens the tray icon, starts the capture loop.",
     "icon:build": "Regenerate src/assets/familiar.ico as a multi-resolution icon (16/24/32/48/64/128/256) from src/assets/familiar.png. Run after swapping the source PNG.",
     "rg:fetch": "Download a pinned ripgrep release and extract rg.exe into build/rg/ (idempotent).",
-    "predist": "Auto-fires before `dist`. Ensures build/rg/ is populated.",
+    "llm:fetch": "Download a pinned llamafile (Qwen2.5-0.5B-Instruct Q4_K_M, ~673 MiB) into build/llm/ (idempotent). This is the bundled fallback LLM used when no external Ollama is reachable.",
+    "predist": "Auto-fires before `dist`. Ensures build/rg/ and build/llm/ are populated.",
     "prepack": "Same as predist, for the `pack` script.",
-    "dist": "Build the real NSIS installer + portable zip into dist/ (~140 MB installer, ~190 MB zip).",
+    "dist": "Build the real NSIS installer + portable zip into dist/ (installer ~800 MB with the bundled LLM).",
     "pack": "Build dist/win-unpacked/ only — skips installer compression. Useful for fast inspection of what the packaged app contains."
   },
   "dependencies": {
@@ -56,6 +58,14 @@
       {
         "from": "build/rg",
         "to": "rg"
+      },
+      {
+        "from": "build/llm",
+        "to": "llm"
+      },
+      {
+        "from": "build/ocr",
+        "to": "ocr"
       }
     ],
     "win": {

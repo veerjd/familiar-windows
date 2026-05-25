@@ -1,6 +1,12 @@
 node_modules/
 build/rg/
+build/llm/
 dist/
 out/
 *.log
 .DS_Store
+
+# .NET build artifacts for native/ — the source and csproj are committed,
+# the published binary lives in build/ocr/familiar-ocr.exe (also committed).
+native/**/bin/
+native/**/obj/
